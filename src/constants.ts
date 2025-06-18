@@ -36,3 +36,27 @@ export const rootPlatformCircleGeometry = new THREE.CircleGeometry(0.5, 16);
 export const rootPlatformCircleMaterial = new THREE.MeshBasicMaterial({
   color: colors.green,
 });
+
+export const midPlaftormSquareLabels = [
+  {
+    label: "Objectives",
+  },
+  {
+    label: "architecture",
+  },
+  {
+    label: "security",
+  },
+  {
+    label: "security",
+  },
+  {
+    label: "technology stack",
+  },
+  {
+    label: "project management",
+  },
+  {
+    label: "organization",
+  },
+];

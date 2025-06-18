@@ -41,30 +41,42 @@ class MyScene {
 
   labelRenderer = new CSS2DRenderer();
 
+  htmlElements: HTMLDivElement[] = [];
+
   constructor() {
-    //this.addHtmlElemens();
     this.setupRenderer();
     this.setupCamera();
     this.setupResize();
     this.controls = new OrbitControls(this.camera, this.canvas);
-    this.trackMouse();
+    //this.trackMouse();
     this.addObjects();
     this.initSettings();
+    this.setupHtmlElements();
+
+    // Create 6 HTML elements for mid-platform squares
+    /* for (let i = 0; i < 6; i++) {
+      const el = document.createElement("div");
+      el.className = "mid-square-label";
+      el.style.position = "absolute";
+      el.style.pointerEvents = "none";
+      el.innerText = `Square ${i + 1}`;
+      el.style.display = "none";
+      document.body.appendChild(el);
+      this.htmlElements.push(el);
+    } */
 
     const axesHelper = new THREE.AxesHelper(5);
     this.scene.add(axesHelper);
   }
 
-  initSettings() {}
-
-  setupLabelRenderer() {
-    this.labelRenderer.setSize(this.width, this.height);
-    this.labelRenderer.domElement.style.position = "absolute";
-    this.labelRenderer.domElement.style.top = "0";
-    this.labelRenderer.domElement.style.left = "0";
-    this.labelRenderer.domElement.style.pointerEvents = "none";
-    document.body.appendChild(this.labelRenderer.domElement);
+  setupHtmlElements() {
+    const els = document.querySelectorAll(".mid-square-label");
+    els.forEach((el) => {
+      this.htmlElements.push(el as HTMLDivElement);
+    });
   }
+
+  initSettings() {}
 
   setupRenderer() {
     this.renderer = new THREE.WebGLRenderer({
@@ -114,9 +126,13 @@ class MyScene {
     });
   }
 
-  addRootPlatform() {
-    const group = new THREE.Group();
+  /* Scene objects */
+  rootPlatform: THREE.Group = new THREE.Group();
+  midPlatform: THREE.Group = new THREE.Group();
+  rootPlatformSpheres: Array<{ delay: number; mesh: THREE.Mesh }> = [];
+  midPlatformSquares: Array<THREE.Mesh> = [];
 
+  addRootPlatform() {
     const geometry = new RoundedBoxGeometry(
       platform.size,
       platform.size,
@@ -144,13 +160,13 @@ class MyScene {
     border.rotation.x = degToRad(90);
     border.position.y += 0.1;
 
-    group.add(plane);
-    group.add(border);
-    this.scene.add(group);
+    this.rootPlatform.add(plane);
+    this.rootPlatform.add(border);
+    this.scene.add(this.rootPlatform);
 
     // Add dashed lines
     const dashGroup = new THREE.Group();
-    group.add(dashGroup);
+    this.rootPlatform.add(dashGroup);
     this.addDashedLines(dashGroup);
   }
 
@@ -171,8 +187,6 @@ class MyScene {
 
     group.add(line);
   }
-
-  rootPlatformSpheres: Array<{ delay: number; mesh: THREE.Mesh }> = [];
 
   addRootPlatformSpheres(group: THREE.Group, args: { x: number; z: number }) {
     const sphereGeometry = new THREE.SphereGeometry(0.5, 16, 16);
@@ -249,8 +263,6 @@ class MyScene {
   }
 
   addMidPlatform() {
-    const group = new THREE.Group();
-
     const geometry = new RoundedBoxGeometry(
       platform.size,
       platform.size,
@@ -279,12 +291,12 @@ class MyScene {
     border.rotation.x = degToRad(90);
     border.position.y = platform.gap;
 
-    group.add(plane);
-    group.add(border);
-    this.scene.add(group);
+    this.midPlatform.add(plane);
+    this.midPlatform.add(border);
+    this.scene.add(this.midPlatform);
 
-    this.addMidPlatformDashedLines(group);
-    this.addMidPlatformSquares(group);
+    this.addMidPlatformDashedLines(this.midPlatform);
+    this.addMidPlatformSquares(this.midPlatform);
   }
 
   addMidPlatformDashedLines(group: THREE.Group) {
@@ -315,8 +327,6 @@ class MyScene {
     }
   }
 
-  midPlatformSquares: Array<THREE.Mesh> = [];
-
   addMidPlatformSquares(group: THREE.Group) {
     const squareSize = 5;
     const squarePositions = [
@@ -328,20 +338,41 @@ class MyScene {
       { x: 15, z: 15 },
     ];
 
-    squarePositions.map((pos, idx) => {
-      //this.htmlElements[idx]?.position.set(pos.x, platform.gap + 1, pos.z);
+    const geometry = new THREE.PlaneGeometry(squareSize, squareSize);
+    const material = new THREE.MeshBasicMaterial({
+      color: colors.black,
+      side: THREE.DoubleSide,
+    });
 
-      const geometry = new THREE.PlaneGeometry(squareSize, squareSize);
-      const material = new THREE.MeshBasicMaterial({
-        color: colors.black,
-        side: THREE.DoubleSide,
-      });
+    squarePositions.map((pos) => {
       const square = new THREE.Mesh(geometry, material);
       square.position.set(pos.x, platform.gap + 1, pos.z);
       square.rotation.x = degToRad(90);
       this.midPlatformSquares.push(square);
       group.add(square);
     });
+  }
+
+  updateHtmlElementPositions() {
+    for (let i = 0; i < this.midPlatformSquares.length; i++) {
+      const mesh = this.midPlatformSquares[i];
+      const el = this.htmlElements[i];
+      if (!mesh || !el) continue;
+
+      // Get the 3D position of the mesh
+      const pos = mesh.position.clone();
+
+      // Project to normalized device coordinates (NDC)
+      pos.project(this.camera);
+
+      // Convert NDC to screen coordinates
+      const x = (pos.x * 0.5 + 0.5) * this.width;
+      const y = (1 - (pos.y * 0.5 + 0.5)) * this.height;
+
+      // Position the HTML element
+      el.style.transform = `translate(-50%, -50%) translate(${x}px, ${y}px)`;
+      el.style.opacity = "1";
+    }
   }
 
   addObjects() {
@@ -357,6 +388,8 @@ class MyScene {
     this.controls.update();
 
     this.moveRootPlatformSpheres();
+
+    this.updateHtmlElementPositions();
 
     // Render
     this.renderer.render(this.scene, this.camera);

@@ -15,6 +15,7 @@
       body {
         overflow: hidden;
         background-color: #222;
+        font-family: "Inter", sans-serif;
       }
 
       .webgl {
@@ -23,9 +24,33 @@
         margin: auto;
         outline: none;
       }
+
+      .mid-square-label {
+        position: absolute;
+        pointer-events: none;
+        font-size: 14px;
+        color: #fff;
+        z-index: 10;
+        opacity: 0;
+
+        p {
+          padding: 1rem;
+          color: #777;
+          background-color: #000;
+          border-radius: 0.5rem;
+          text-transform: uppercase;
+        }
+      }
     </style>
   </head>
   <body>
+    <div class="mid-square-label"><p>Objectives</p></div>
+    <div class="mid-square-label"><p>architecture</p></div>
+    <div class="mid-square-label"><p>security</p></div>
+    <div class="mid-square-label"><p>security</p></div>
+    <div class="mid-square-label"><p>technology stack</p></div>
+    <div class="mid-square-label"><p>project management</p></div>
+
     <canvas class="webgl"></canvas>
     <script type="module" src="/src/main.ts"></script>
   </body>
