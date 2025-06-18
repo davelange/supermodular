@@ -22,6 +22,7 @@ import {
   rootPlatformCircleMaterial,
 } from "./constants";
 import { randIn } from "./utils";
+import GUI from "lil-gui";
 
 class MyScene {
   scene = new THREE.Scene();
@@ -33,13 +34,14 @@ class MyScene {
   height = window.innerHeight;
 
   stats = new Stats();
-  controls = new OrbitControls(this.camera, this.canvas);
+  controls: OrbitControls | null = null;
 
-  settings: Record<string, any> = {};
   mouse = new THREE.Vector2(0, 0);
   prevMouse = new THREE.Vector2(0, 0);
-
-  labelRenderer = new CSS2DRenderer();
+  settings: Record<string, any> = {
+    orbitControls: false,
+    midPlatformY: platform.gap,
+  };
 
   htmlElements: HTMLDivElement[] = [];
 
@@ -47,23 +49,9 @@ class MyScene {
     this.setupRenderer();
     this.setupCamera();
     this.setupResize();
-    this.controls = new OrbitControls(this.camera, this.canvas);
-    //this.trackMouse();
     this.addObjects();
     this.initSettings();
     this.setupHtmlElements();
-
-    // Create 6 HTML elements for mid-platform squares
-    /* for (let i = 0; i < 6; i++) {
-      const el = document.createElement("div");
-      el.className = "mid-square-label";
-      el.style.position = "absolute";
-      el.style.pointerEvents = "none";
-      el.innerText = `Square ${i + 1}`;
-      el.style.display = "none";
-      document.body.appendChild(el);
-      this.htmlElements.push(el);
-    } */
 
     const axesHelper = new THREE.AxesHelper(5);
     this.scene.add(axesHelper);
@@ -76,7 +64,18 @@ class MyScene {
     });
   }
 
-  initSettings() {}
+  initSettings() {
+    const gui = new GUI();
+
+    gui.add(this.settings, "orbitControls").onFinishChange(() => {
+      if (this.settings.orbitControls) {
+        this.controls = new OrbitControls(this.camera, this.canvas);
+      } else {
+        this.controls = null;
+      }
+    });
+    gui.add(this.settings, "midPlatformY", 0, this.settings.midPlatformY, 0.01);
+  }
 
   setupRenderer() {
     this.renderer = new THREE.WebGLRenderer({
@@ -100,6 +99,7 @@ class MyScene {
       1000
     );
     this.camera.position.set(2, 1, 2);
+    this.camera.lookAt(0, 0, 0);
     this.camera.zoom = 10;
     this.camera.updateProjectionMatrix();
   }
@@ -128,8 +128,9 @@ class MyScene {
 
   /* Scene objects */
   rootPlatform: THREE.Group = new THREE.Group();
-  midPlatform: THREE.Group = new THREE.Group();
   rootPlatformSpheres: Array<{ delay: number; mesh: THREE.Mesh }> = [];
+  rootPlatformLines: Array<{ mesh: Line2; startY: THREE.Vector3 }> = [];
+  midPlatform: THREE.Group = new THREE.Group();
   midPlatformSquares: Array<THREE.Mesh> = [];
 
   addRootPlatform() {
@@ -167,7 +168,7 @@ class MyScene {
     // Add dashed lines
     const dashGroup = new THREE.Group();
     this.rootPlatform.add(dashGroup);
-    this.addDashedLines(dashGroup);
+    this.addVerticalLinesFromRootPlatform(dashGroup);
   }
 
   addDashedLine(
@@ -186,6 +187,8 @@ class MyScene {
     line.computeLineDistances(); // Required for dashed lines
 
     group.add(line);
+
+    return line;
   }
 
   addRootPlatformSpheres(group: THREE.Group, args: { x: number; z: number }) {
@@ -206,7 +209,7 @@ class MyScene {
         continue;
       }
 
-      if (sphere.mesh.position.y > platform.gap) {
+      if (sphere.mesh.position.y > this.settings.midPlatformY - 1) {
         sphere.mesh.position.y = 0;
       } else {
         sphere.mesh.position.y += 0.1;
@@ -231,7 +234,7 @@ class MyScene {
     }
   }
 
-  addDashedLines(group: THREE.Group) {
+  addVerticalLinesFromRootPlatform(group: THREE.Group) {
     const spacing = platform.size / platform.numLines; // Space between lines
 
     for (let i = 0; i < platform.numLines; i++) {
@@ -243,20 +246,24 @@ class MyScene {
       const x2 = platform.size / 2 - spacing;
       const z2 = -platform.size / 2 + i * spacing;
 
-      this.addDashedLine(
+      const line1 = this.addDashedLine(
         group,
         { x: x1, y: 0, z: z1 },
-        { x: x1, y: platform.gap, z: z1 },
+        { x: x1, y: this.settings.midPlatformY, z: z1 },
         { material: dashedLineMaterial }
       );
-      this.addDashedLine(
+      const line2 = this.addDashedLine(
         group,
         { x: x2, y: 0, z: z2 },
-        { x: x2, y: platform.gap, z: z2 },
+        { x: x2, y: this.settings.midPlatformY, z: z2 },
         { material: dashedLineMaterial }
       );
-      this.addCircleLine(group, { x: x1, z: z1 });
+      this.rootPlatformLines.push(
+        { mesh: line1, startY: new THREE.Vector3(x1, 0, z1) },
+        { mesh: line2, startY: new THREE.Vector3(x2, 0, z2) }
+      );
 
+      this.addCircleLine(group, { x: x1, z: z1 });
       this.addRootPlatformSpheres(group, { x: x1, z: z1 });
       this.addRootPlatformSpheres(group, { x: x2, z: z2 });
     }
@@ -275,7 +282,7 @@ class MyScene {
     });
 
     const plane = new THREE.Mesh(geometry, planeMaterial);
-    plane.position.y = platform.gap;
+    //plane.position.y = this.settings.midPlatformY;
     plane.rotation.x = degToRad(90);
     plane.scale.set(0.98, 0.98, 0.98);
 
@@ -289,8 +296,9 @@ class MyScene {
     const border = new THREE.LineSegments(edges, borderMaterial);
     border.position.set(0, 0, 0.05);
     border.rotation.x = degToRad(90);
-    border.position.y = platform.gap;
+    //border.position.y = this.settings.midPlatformY;
 
+    this.midPlatform.position.y = this.settings.midPlatformY;
     this.midPlatform.add(plane);
     this.midPlatform.add(border);
     this.scene.add(this.midPlatform);
@@ -301,6 +309,7 @@ class MyScene {
 
   addMidPlatformDashedLines(group: THREE.Group) {
     const spacing = platform.size / platform.numLines;
+    const offsetY = 0.5;
 
     for (let i = 0; i < platform.numLines; i++) {
       if (i === 0) continue;
@@ -313,15 +322,15 @@ class MyScene {
 
       this.addDashedLine(
         group,
-        { x: x1, y: platform.gap + 1, z: z1 },
-        { x: x1, y: platform.gap + 1, z: z1 - platform.size },
+        { x: x1, y: offsetY, z: z1 },
+        { x: x1, y: offsetY, z: z1 - platform.size },
         { material: dashedLineMaterialBlack }
       );
 
       this.addDashedLine(
         group,
-        { x: x2, y: platform.gap + 1, z: z2 },
-        { x: x2 - platform.size, y: platform.gap + 2, z: z2 },
+        { x: x2, y: offsetY, z: z2 },
+        { x: x2 - platform.size, y: offsetY, z: z2 },
         { material: dashedLineMaterialBlack }
       );
     }
@@ -346,7 +355,7 @@ class MyScene {
 
     squarePositions.map((pos) => {
       const square = new THREE.Mesh(geometry, material);
-      square.position.set(pos.x, platform.gap + 1, pos.z);
+      square.position.set(pos.x, 0.5, pos.z);
       square.rotation.x = degToRad(90);
       this.midPlatformSquares.push(square);
       group.add(square);
@@ -360,7 +369,7 @@ class MyScene {
       if (!mesh || !el) continue;
 
       // Get the 3D position of the mesh
-      const pos = mesh.position.clone();
+      const pos = mesh.position.clone().add(this.midPlatform.position);
 
       // Project to normalized device coordinates (NDC)
       pos.project(this.camera);
@@ -375,6 +384,17 @@ class MyScene {
     }
   }
 
+  moveMidPlatform() {
+    this.midPlatform.position.y = this.settings.midPlatformY;
+    this.rootPlatformLines.map((line) => {
+      line.mesh.geometry.setFromPoints([
+        line.startY,
+        line.startY.clone().setY(this.settings.midPlatformY),
+      ]);
+      line.mesh.computeLineDistances();
+    });
+  }
+
   addObjects() {
     this.addRootPlatform();
     this.addMidPlatform();
@@ -385,10 +405,10 @@ class MyScene {
   render() {
     const elapsedTime = this.clock.getElapsedTime();
 
-    this.controls.update();
+    this.controls?.update();
 
     this.moveRootPlatformSpheres();
-
+    this.moveMidPlatform();
     this.updateHtmlElementPositions();
 
     // Render
