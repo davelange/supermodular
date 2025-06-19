@@ -1,8 +1,11 @@
 import * as THREE from "three";
 import { LineMaterial } from "three-fatline";
+import { randIn } from "./utils";
+import { RoundedBoxGeometry } from "three/examples/jsm/Addons.js";
 
 export const colors = {
   green: "#b8ff9e",
+  yellow: "#F6FF9A",
   darkGray: "#191919",
   black: "#020202",
   lightGray: "#6b6b6b",
@@ -11,6 +14,7 @@ export const platform = {
   gap: 50,
   size: 70,
   numLines: 14,
+  topOffset: 30,
 };
 
 export const dashedLineMaterial = new LineMaterial({
@@ -32,31 +36,38 @@ export const dashedLineMaterialBlack = new LineMaterial({
   dashSize: 1,
   gapSize: 1,
 });
+export const platformGeometry = new RoundedBoxGeometry(
+  platform.size,
+  platform.size,
+  0.5,
+  20,
+  20
+);
 export const rootPlatformCircleGeometry = new THREE.CircleGeometry(0.5, 16);
 export const rootPlatformCircleMaterial = new THREE.MeshBasicMaterial({
   color: colors.green,
 });
+export const rootPlatformSphereGeometry = new THREE.SphereGeometry(0.5, 16, 16);
+export const rootPlatformSphereMaterial = new THREE.MeshBasicMaterial({
+  color: colors.green,
+});
+export const upperMidPlatformSphereGeometry = new THREE.SphereGeometry(
+  1.8,
+  16,
+  16
+);
+export const upperMidPlatformSphereMaterial = new THREE.MeshBasicMaterial({
+  color: colors.yellow,
+});
 
-export const midPlaftormSquareLabels = [
-  {
-    label: "Objectives",
-  },
-  {
-    label: "architecture",
-  },
-  {
-    label: "security",
-  },
-  {
-    label: "security",
-  },
-  {
-    label: "technology stack",
-  },
-  {
-    label: "project management",
-  },
-  {
-    label: "organization",
-  },
+export const upperMidPlatformSpheres = [
+  new THREE.Vector3(-30, 5, 10),
+  new THREE.Vector3(-20, 5, 20),
+  new THREE.Vector3(-15, 5, -15),
+  new THREE.Vector3(-25, 5, 15),
+
+  new THREE.Vector3(30, 5, 10),
+  new THREE.Vector3(20, 5, 20),
+  new THREE.Vector3(15, 5, -15),
+  new THREE.Vector3(25, 5, 15),
 ];
