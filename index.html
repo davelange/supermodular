@@ -25,7 +25,30 @@
         outline: none;
       }
 
-      .mid-square-label {
+      .square-label-container[data-phase="2"],
+      .square-label-container[data-phase="3"],
+      .square-label-container[data-phase="4"] {
+        .square-label.root {
+          display: none;
+        }
+      }
+      .square-label-container[data-phase="0"],
+      .square-label-container[data-phase="1"],
+      .square-label-container[data-phase="3"],
+      .square-label-container[data-phase="4"] {
+        .square-label.upper-mid {
+          display: none;
+        }
+      }
+      .square-label-container[data-phase="0"],
+      .square-label-container[data-phase="1"],
+      .square-label-container[data-phase="2"] {
+        .square-label.upper {
+          display: none;
+        }
+      }
+
+      .square-label {
         position: absolute;
         pointer-events: none;
         font-size: 14px;
@@ -42,22 +65,27 @@
           border-radius: 0.5rem;
           text-transform: uppercase;
         }
-
-        &[data-phase="3"] {
-          p {
-            transform: translate(0, -80px);
-          }
-        }
       }
     </style>
   </head>
   <body>
-    <div class="mid-square-label"><p>Objectives</p></div>
-    <div class="mid-square-label"><p>architecture</p></div>
-    <div class="mid-square-label"><p>security</p></div>
-    <div class="mid-square-label"><p>security</p></div>
-    <div class="mid-square-label"><p>technology stack</p></div>
-    <div class="mid-square-label"><p>project management</p></div>
+    <div class="square-label-container" data-phase="0">
+      <div class="square-label root"><p>Objectives</p></div>
+      <div class="square-label root"><p>architecture</p></div>
+      <div class="square-label root"><p>security</p></div>
+      <div class="square-label root"><p>security</p></div>
+      <div class="square-label root"><p>technology stack</p></div>
+      <div class="square-label root"><p>project management</p></div>
+
+      <div class="square-label upper-mid"><p>agentic system A</p></div>
+      <div class="square-label upper-mid"><p>agentic system B</p></div>
+      <div class="square-label upper-mid"><p>agentic system C</p></div>
+      <div class="square-label upper-mid"><p>agentic system D</p></div>
+
+      <div class="square-label upper"><p>solution 1</p></div>
+      <div class="square-label upper"><p>solution 2</p></div>
+      <div class="square-label upper"><p>solution 3</p></div>
+    </div>
 
     <canvas class="webgl"></canvas>
     <script type="module" src="/src/main.ts"></script>

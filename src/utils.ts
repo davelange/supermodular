@@ -10,20 +10,23 @@ export function randIn(min: number, max: number): number {
   return Math.floor(Math.random() * (max - min + 1)) + min;
 }
 
-export function getObjectByName(group: THREE.Group, name: string) {
-  return group.getObjectByName(name) as THREE.Mesh<
-    THREE.BoxGeometry,
-    THREE.MeshBasicMaterial
-  >;
+type GetObjectReturnType = {
+  mesh: THREE.Mesh<THREE.BoxGeometry, THREE.MeshBasicMaterial>;
+  group: THREE.Group;
+};
+
+export function getObjectByName<T extends keyof GetObjectReturnType = "mesh">(
+  group: THREE.Group,
+  name: string
+) {
+  return group.getObjectByName(name) as GetObjectReturnType[T];
 }
 
-export function getObjectsByProperty(
-  group: THREE.Group,
-  name: string,
-  value: string
-) {
-  return group.getObjectsByProperty(name, value) as unknown as THREE.Mesh<
-    THREE.BoxGeometry,
-    THREE.LineBasicMaterial
-  >[];
+export function getObjectsByProperty<
+  T extends keyof GetObjectReturnType = "mesh"
+>(group: THREE.Group, name: string, value: string) {
+  return group.getObjectsByProperty(
+    name,
+    value
+  ) as unknown as GetObjectReturnType[T][];
 }

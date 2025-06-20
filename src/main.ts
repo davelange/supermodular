@@ -17,14 +17,18 @@ import {
   colors,
   dashedLineMaterial,
   dashedLineMaterialBlack,
+  dashedLineMaterialSolid,
   platform,
   platformGeometry,
   rootPlatformCircleGeometry,
   rootPlatformCircleMaterial,
   rootPlatformSphereGeometry,
+  rootSquarePositions,
   upperMidPlatformSphereGeometry,
   upperMidPlatformSphereMaterial,
   upperMidPlatformSpheres,
+  upperMidSquarePositions,
+  upperSquarePositions,
 } from "./constants";
 import { getObjectByName, getObjectsByProperty, randIn } from "./utils";
 import GUI from "lil-gui";
@@ -47,14 +51,23 @@ class MyScene {
     orbitControls: false,
     midPlatformY: platform.gap,
     upperMidPlatformY: platform.gap,
+    upperPlatformY: platform.gap + 10,
     progress: 0,
   };
 
-  htmlElements: HTMLDivElement[] = [];
+  htmlElementsContainer: HTMLDivElement = document.querySelector(
+    ".square-label-container"
+  ) as HTMLDivElement;
+
+  htmlElementsRoot: Array<HTMLDivElement> = [];
+  htmlElementsUpperMid: Array<HTMLDivElement> = [];
+  htmlElementsUpper: Array<HTMLDivElement> = [];
+
+  // The allfather group
   container: THREE.Group = new THREE.Group();
 
   sceneState = {
-    phase: 0,
+    phase: -1,
   };
 
   constructor() {
@@ -73,9 +86,19 @@ class MyScene {
   }
 
   setupHtmlElements() {
-    const els = document.querySelectorAll(".mid-square-label");
+    let els = document.querySelectorAll(".square-label.root");
     els.forEach((el) => {
-      this.htmlElements.push(el as HTMLDivElement);
+      this.htmlElementsRoot.push(el as HTMLDivElement);
+    });
+
+    els = document.querySelectorAll(".square-label.upper-mid");
+    els.forEach((el) => {
+      this.htmlElementsUpperMid.push(el as HTMLDivElement);
+    });
+
+    els = document.querySelectorAll(".square-label.upper");
+    els.forEach((el) => {
+      this.htmlElementsUpper.push(el as HTMLDivElement);
     });
   }
 
@@ -94,30 +117,52 @@ class MyScene {
       .onChange((val: number) => this.onProgressChange(val));
   }
 
-  onProgressChange(val: number) {
-    if (val <= 1) {
+  onProgressChange(progress: number) {
+    if (progress <= 1) {
       this.sceneState.phase = 0;
-      this.settings.midPlatformY = platform.gap * Math.max(0.15, 1 - val);
+      this.settings.midPlatformY = platform.gap * Math.max(0.15, 1 - progress);
+
+      if (this.sceneState.phase !== 0) {
+        this.htmlElementsContainer.setAttribute("data-phase", "0");
+      }
     }
 
-    if (val > 0.95) {
+    if (progress > 0.95 && this.sceneState.phase !== 1) {
       this.sceneState.phase = 1;
-
+      this.htmlElementsContainer.setAttribute("data-phase", "1");
       this.revealUpperMidPlatform();
       this.updateRootPlatformColors();
       this.updateMidPlatformColors();
     }
 
-    if (val > 1) {
-      this.sceneState.phase = 2;
-
+    if (progress > 1) {
       this.settings.upperMidPlatformY =
-        (platform.gap + 5) * Math.max(0.25, 1 - (val - 1));
+        (platform.gap + 5) * Math.max(0.25, 1 - (progress - 1));
+
+      if (this.sceneState.phase !== 2) {
+        this.sceneState.phase = 2;
+        this.htmlElementsContainer.setAttribute("data-phase", "2");
+      }
     }
 
-    if (val > 1.9) {
-      this.sceneState.phase = 3;
-      this.updateUpperMidPlatformColors();
+    if (progress > 1.9) {
+      this.settings.upperPlatformY =
+        (platform.gap + 5) * Math.max(0.38, 1 - (progress - 2));
+
+      if (this.sceneState.phase !== 3) {
+        this.sceneState.phase = 3;
+        this.htmlElementsContainer.setAttribute("data-phase", "3");
+        this.updateUpperMidPlatformColors();
+        this.revealUpperPlatform();
+      }
+    }
+
+    if (progress > 2.9) {
+      if (this.sceneState.phase !== 4) {
+        this.sceneState.phase = 4;
+        this.htmlElementsContainer.setAttribute("data-phase", "4");
+        this.updateUpperPlatformColors();
+      }
     }
   }
 
@@ -185,6 +230,8 @@ class MyScene {
   upperMidPlatformSpheres: Array<{ delay: number; mesh: THREE.Mesh }> = [];
 
   upperPlatform: THREE.Group = new THREE.Group();
+  upperPlatformVerticalLines: Array<{ mesh: Line2; startPos: THREE.Vector3 }> =
+    [];
 
   addDashedLine(
     group: THREE.Group,
@@ -302,6 +349,7 @@ class MyScene {
 
   addVerticalLinesFromRootPlatform(group: THREE.Group) {
     const spacing = platform.size / platform.numLines; // Space between lines
+    const upperPlatformY = this.settings.upperMidPlatformY;
 
     for (let i = 0; i < platform.numLines; i++) {
       if (i === 0) continue;
@@ -418,14 +466,6 @@ class MyScene {
 
   addMidPlatformSquares(group: THREE.Group) {
     const squareSize = 5;
-    const squarePositions = [
-      { x: -20, z: -20 },
-      { x: 0, z: -20 },
-      { x: 20, z: -20 },
-      { x: -20, z: 0 },
-      { x: -20, z: 20 },
-      { x: 15, z: 15 },
-    ];
 
     const geometry = new THREE.PlaneGeometry(squareSize, squareSize);
     const material = new THREE.MeshBasicMaterial({
@@ -433,7 +473,7 @@ class MyScene {
       side: THREE.DoubleSide,
     });
 
-    squarePositions.map((pos) => {
+    rootSquarePositions.map((pos) => {
       const square = new THREE.Mesh(geometry, material);
       square.position.set(pos.x, 0.5, pos.z);
       square.rotation.x = degToRad(90);
@@ -441,32 +481,6 @@ class MyScene {
       this.midPlatformSquares.push(square);
       group.add(square);
     });
-  }
-
-  updateHtmlElementPositions() {
-    for (let i = 0; i < this.midPlatformSquares.length; i++) {
-      const mesh = this.midPlatformSquares[i];
-      const el = this.htmlElements[i];
-      if (!mesh || !el) continue;
-
-      // Get the 3D position of the mesh
-      const pos = mesh.position
-        .clone()
-        .add(this.midPlatform.position)
-        .add(this.container.position);
-
-      // Project to normalized device coordinates (NDC)
-      pos.project(this.camera);
-
-      // Convert NDC to screen coordinates
-      const x = (pos.x * 0.5 + 0.5) * this.width;
-      const y = (1 - (pos.y * 0.5 + 0.5)) * this.height;
-
-      // Position the HTML element
-      el.setAttribute("data-phase", this.sceneState.phase.toString());
-      el.style.transform = `translate(-50%, -50%) translate(${x}px, ${y}px)`;
-      el.style.opacity = "1";
-    }
   }
 
   moveMidPlatform() {
@@ -520,7 +534,54 @@ class MyScene {
 
     this.addUpperMidPlatformSpheres(this.upperMidPlatformSphereGroup);
     this.addMidPlatformDashedLines(platformGroup);
-    this.addMidPlatformSquares(platformGroup);
+    this.addUpperMidPlatformSquares(platformGroup);
+  }
+
+  addUpperMidPlatformSquares(group: THREE.Group) {
+    const squareSize = 5;
+
+    const geometry = new THREE.PlaneGeometry(squareSize, squareSize);
+    const material = new THREE.MeshBasicMaterial({
+      color: colors.black,
+      side: THREE.DoubleSide,
+      transparent: true,
+      opacity: 0,
+    });
+
+    upperMidSquarePositions.map(({ position, lineDirection }) => {
+      const square = new THREE.Mesh(geometry, material);
+      square.position.set(position.x, 0.5, position.z);
+      square.rotation.x = degToRad(90);
+      square.name = "square";
+      this.midPlatformSquares.push(square);
+
+      const line = this.addDashedLine(
+        group,
+        square.position,
+        square.position.clone().add(lineDirection),
+        { material: dashedLineMaterialSolid }
+      );
+      line.name = "lineFromSquare";
+
+      const lineVertical = this.addDashedLine(
+        group,
+        square.position.clone().add(lineDirection),
+        square.position
+          .clone()
+          .add(lineDirection)
+          .add(new THREE.Vector3(0, this.settings.upperPlatformY, 0)),
+        { material: dashedLineMaterialSolid }
+      );
+      line.name = "lineFromSquare";
+      lineVertical.name = "lineFromSquareVertical";
+
+      this.upperPlatformVerticalLines.push({
+        mesh: lineVertical,
+        startPos: square.position.clone().add(lineDirection),
+      });
+
+      group.add(square);
+    });
   }
 
   addUpperMidPlatformSpheres(group: THREE.Group) {
@@ -556,8 +617,7 @@ class MyScene {
       "borderMaterial"
     ).material.opacity = 1;
     getObjectByName(this.upperMidPlatform, "sphere").material.opacity = 1;
-    getObjectByName(this.upperPlatform, "planeMaterial").material.opacity = 1;
-    getObjectByName(this.upperPlatform, "borderMaterial").material.opacity = 1;
+    getObjectByName(this.upperMidPlatform, "square").material.opacity = 1;
   }
 
   moveUpperMidPlatform() {
@@ -566,7 +626,7 @@ class MyScene {
   }
 
   moveUpperMidPlatformSpheres() {
-    if (this.sceneState.phase === 0) return;
+    if (this.sceneState.phase === 0 || this.sceneState.phase === 4) return;
 
     if (this.sceneState.phase === 3) {
       for (const sphere of this.upperMidPlatformSpheres) {
@@ -604,6 +664,22 @@ class MyScene {
     getObjectByName(this.upperMidPlatform, "borderMaterial").material.color.set(
       colors.yellow
     );
+    getObjectsByProperty(
+      this.upperMidPlatform,
+      "name",
+      "lineFromSquare"
+    ).forEach((mesh) => {
+      mesh.material.color.set(colors.yellow);
+      mesh.material.opacity = 1;
+    });
+    getObjectsByProperty(
+      this.upperMidPlatform,
+      "name",
+      "lineFromSquareVertical"
+    ).forEach((mesh) => {
+      mesh.material.color.set(colors.yellow);
+      mesh.material.opacity = 1;
+    });
 
     // make mid platform gray
     getObjectsByProperty(this.midPlatform, "name", "dashedLine").forEach(
@@ -617,8 +693,20 @@ class MyScene {
     );
   }
 
+  moveUpperPlatformVerticalLines() {
+    this.upperPlatformVerticalLines.map((line) => {
+      line.mesh.geometry.setFromPoints([
+        line.startPos,
+        line.startPos.clone().setY(this.settings.upperPlatformY - 15),
+      ]);
+      line.mesh.computeLineDistances();
+    });
+  }
+
   // Upper Platform
   addUpperPlatform() {
+    const platformGroup = new THREE.Group();
+    platformGroup.name = "platformGroup";
     const planeMaterial = new THREE.MeshBasicMaterial({
       color: colors.darkGray,
       transparent: true,
@@ -644,11 +732,152 @@ class MyScene {
     border.position.set(0, 0, 0.05);
     border.rotation.x = degToRad(90);
 
-    this.upperPlatform.position.y = platform.gap + 10;
+    this.upperPlatform.position.y = this.settings.upperPlatformY;
 
     this.upperPlatform.add(plane);
     this.upperPlatform.add(border);
+    this.addUpperPlatformSquares(this.upperPlatform);
+    this.addUpperPlatformLines(this.upperPlatform);
     this.container.add(this.upperPlatform);
+  }
+
+  addUpperPlatformSquares(group: THREE.Group) {
+    const squareSize = 5;
+
+    const geometry = new THREE.PlaneGeometry(squareSize, squareSize);
+    const material = new THREE.MeshBasicMaterial({
+      color: colors.black,
+      side: THREE.DoubleSide,
+      transparent: true,
+      opacity: 0,
+    });
+
+    upperSquarePositions.map((pos) => {
+      const square = new THREE.Mesh(geometry, material);
+      square.position.set(pos.x, 0.5, pos.z);
+      square.rotation.x = degToRad(90);
+      square.name = "square";
+      group.add(square);
+    });
+  }
+
+  addUpperPlatformLines(group: THREE.Group) {
+    const spacing = platform.size / platform.numLines;
+    const offsetY = 0.5;
+
+    const material = dashedLineMaterialBlack.clone();
+
+    for (let i = 0; i < platform.numLines; i++) {
+      if (i === 0) continue;
+
+      const x1 = -platform.size / 2 + i * spacing;
+      const z1 = platform.size / 2;
+
+      const x2 = platform.size / 2;
+      const z2 = -platform.size / 2 + i * spacing;
+
+      const line1 = this.addDashedLine(
+        group,
+        { x: x1, y: offsetY, z: z1 },
+        { x: x1, y: offsetY, z: z1 - platform.size },
+        { material }
+      );
+      line1.name = "dashedLine";
+
+      const line2 = this.addDashedLine(
+        group,
+        { x: x2, y: offsetY, z: z2 },
+        { x: x2 - platform.size, y: offsetY, z: z2 },
+        { material }
+      );
+      line2.name = "dashedLine";
+    }
+  }
+
+  // Reveal Upper Platform
+  revealUpperPlatform() {
+    getObjectByName(this.upperPlatform, "planeMaterial").material.opacity = 1;
+    getObjectByName(this.upperPlatform, "borderMaterial").material.opacity = 1;
+    getObjectsByProperty(this.upperPlatform, "name", "square").forEach(
+      (mesh) => {
+        mesh.material.opacity = 1;
+      }
+    );
+  }
+
+  updateUpperPlatformColors() {
+    getObjectByName(this.upperPlatform, "borderMaterial").material.color.set(
+      colors.yellow
+    );
+
+    const dashedLine = getObjectByName(this.upperPlatform, "dashedLine");
+    dashedLine.material.color.set(colors.yellow);
+    dashedLine.material.linewidth = 0.3;
+
+    getObjectByName(this.upperPlatform, "square").material.color.set(
+      colors.yellow
+    );
+
+    getObjectByName(this.upperMidPlatform, "borderMaterial").material.color.set(
+      colors.black
+    );
+    getObjectByName(this.upperMidPlatform, "dashedLine").material.color.set(
+      colors.lightGray
+    );
+  }
+
+  moveUpperPlatform() {
+    this.upperPlatform.position.y = this.settings.upperPlatformY;
+  }
+
+  // html
+  updateHtmlElementPositions() {
+    const updateElements = (
+      meshes: Array<THREE.Mesh>,
+      els: Array<HTMLDivElement>,
+      reference: THREE.Group
+    ) => {
+      for (let i = 0; i < meshes.length; i++) {
+        const mesh = meshes[i];
+        const el = els[i];
+        if (!mesh || !el) continue;
+
+        // Get the 3D position of the mesh
+        const pos = mesh.position
+          .clone()
+          .add(this.container.position)
+          .add(reference.position);
+
+        // Project to normalized device coordinates (NDC)
+        pos.project(this.camera);
+
+        // Convert NDC to screen coordinates
+        const x = (pos.x * 0.5 + 0.5) * this.width;
+        const y = (1 - (pos.y * 0.5 + 0.5)) * this.height;
+
+        // Position the HTML element
+        el.style.transform = `translate(-50%, -50%) translate(${x}px, ${y}px)`;
+        el.style.opacity = "1";
+      }
+    };
+
+    updateElements(
+      this.midPlatformSquares,
+      this.htmlElementsRoot,
+      this.midPlatform
+    );
+
+    updateElements(
+      getObjectsByProperty(this.upperMidPlatform, "name", "square"),
+      this.htmlElementsUpperMid,
+      getObjectByName<"group">(this.upperMidPlatform, "platformGroup")
+    );
+
+    updateElements(
+      getObjectsByProperty(this.upperPlatform, "name", "square"),
+      this.htmlElementsUpper,
+      this.upperPlatform
+    );
   }
 
   addObjects() {
@@ -657,7 +886,7 @@ class MyScene {
     this.addRootPlatform();
     this.addMidPlatform();
     this.addUpperMidPlatform();
-    //this.addUpperPlatform();
+    this.addUpperPlatform();
   }
 
   clock = new THREE.Clock();
@@ -671,6 +900,8 @@ class MyScene {
     this.moveMidPlatform();
     this.moveUpperMidPlatform();
     this.moveUpperMidPlatformSpheres();
+    this.moveUpperPlatform();
+    this.moveUpperPlatformVerticalLines();
     this.updateHtmlElementPositions();
 
     // Render
