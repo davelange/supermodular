@@ -109,9 +109,17 @@ class MyScene {
         this.controls = null;
       }
     });
-    gui
-      .add(this.settings, "progress", 0, 4, 0.01)
-      .onChange((val: number) => this.onProgressChange(val));
+
+    // Add mouse scroll event listener for progress control
+    window.addEventListener("wheel", (event) => {
+      event.preventDefault();
+      const scrollDelta = event.deltaY > 0 ? 0.1 : -0.1;
+      this.settings.progress = Math.max(
+        0,
+        Math.min(4, this.settings.progress + scrollDelta)
+      );
+      this.onProgressChange(this.settings.progress);
+    });
   }
 
   onProgressChange(progress: number) {
