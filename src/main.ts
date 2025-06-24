@@ -1057,7 +1057,7 @@ class MyScene {
   clock = new THREE.Clock();
 
   render() {
-    const elapsedTime = this.clock.getElapsedTime();
+    //const elapsedTime = this.clock.getElapsedTime();
 
     this.controls?.update();
 
