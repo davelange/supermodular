@@ -25,67 +25,196 @@
         outline: none;
       }
 
-      .square-label-container[data-phase="2"],
-      .square-label-container[data-phase="3"],
-      .square-label-container[data-phase="4"] {
-        .square-label.root {
+      .scene-label-container[data-phase="2"],
+      .scene-label-container[data-phase="3"],
+      .scene-label-container[data-phase="4"] {
+        [data-platform="1"] {
           display: none;
         }
       }
-      .square-label-container[data-phase="0"],
-      .square-label-container[data-phase="1"],
-      .square-label-container[data-phase="3"],
-      .square-label-container[data-phase="4"] {
-        .square-label.upper-mid {
+      .scene-label-container[data-phase="0"],
+      .scene-label-container[data-phase="1"],
+      .scene-label-container[data-phase="3"],
+      .scene-label-container[data-phase="4"] {
+        [data-platform="2"] {
           display: none;
         }
       }
-      .square-label-container[data-phase="0"],
-      .square-label-container[data-phase="1"],
-      .square-label-container[data-phase="2"] {
-        .square-label.upper {
+      .scene-label-container[data-phase="0"],
+      .scene-label-container[data-phase="1"],
+      .scene-label-container[data-phase="2"] {
+        [data-platform="3"] {
           display: none;
         }
       }
 
-      .square-label {
+      .label {
+        background: none;
+        padding: 0;
+        border: none;
+        cursor: pointer;
         position: absolute;
-        pointer-events: none;
         font-size: 14px;
         z-index: 10;
         opacity: 0;
 
-        p {
-          transform: translate(0, -40px);
+        .inner {
+          transform: translate(0, -80%);
+        }
 
-          border: 1px solid #fff;
-          padding: 1rem;
-          color: #777;
-          background-color: #000;
-          border-radius: 0.5rem;
+        .title-wrapper {
+          position: absolute;
+          display: flex;
+          flex-direction: column;
+          gap: 0.25rem;
+          max-height: 2rem;
+          bottom: 100%;
+          overflow: hidden;
+          transition: max-height 0.15s ease;
+
+          &.left {
+            left: 0;
+            border-radius: 4px 4px 4px 0;
+          }
+
+          &.right {
+            right: 0;
+            border-radius: 4px 4px 0 4px;
+          }
+
+          .eye-wrapper {
+            width: 12px;
+            height: 12px;
+
+            .eye {
+              display: none;
+            }
+            .cross {
+              display: none;
+            }
+          }
+        }
+
+        .title {
+          background: #050505;
+          padding: 0.5rem 1rem;
           text-transform: uppercase;
+          color: #6b6b6b;
+          white-space: nowrap;
+          display: flex;
+          align-items: center;
+          gap: 4px;
+          transition: max-height 0.15s ease;
+
+          &.sub-keyword {
+            text-transform: none;
+            font-style: italic;
+            border-radius: 4px;
+          }
+
+          &.left {
+            text-align: left;
+          }
+
+          &.right {
+            text-align: right;
+          }
+        }
+
+        .icon-container {
+          width: 74px;
+          height: 74px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          border-radius: 0 0 4px 4px;
+          background: #191919;
+          border: 1px solid #050505;
+          transition: max-height 0.15s ease;
+
+          img {
+            width: 36px;
+            height: 36px;
+            filter: invert(1);
+          }
+        }
+      }
+
+      .enabled .label.alt {
+        .title {
+          background: #f7ff9a;
+        }
+
+        .icon-container {
+          background: #fff;
+          border: 1px solid #f7ff9a;
+          width: 128px;
+          height: 80px;
+
+          img {
+            width: auto;
+            height: auto;
+          }
+        }
+
+        .eye-wrapper {
+          display: none;
+        }
+      }
+
+      .enabled .label {
+        .title {
+          background: #fff;
+        }
+
+        .eye-wrapper {
+          .eye {
+            display: block;
+          }
+
+          .cross {
+            display: none;
+          }
+        }
+
+        .icon-container {
+          border: 1px solid #fff;
+
+          img {
+            filter: none;
+          }
+        }
+      }
+
+      .label.active {
+        .title-wrapper {
+          max-height: 400%;
+        }
+
+        .eye-wrapper {
+          .eye {
+            display: none;
+          }
+
+          .cross {
+            display: block;
+          }
+        }
+      }
+
+      .scene-label-container.focused {
+        .label:not(.active) {
+          filter: brightness(0.4);
         }
       }
     </style>
   </head>
   <body>
-    <div class="square-label-container" data-phase="0">
-      <div class="square-label root"><p>Objectives</p></div>
-      <div class="square-label root"><p>architecture</p></div>
-      <div class="square-label root"><p>security</p></div>
-      <div class="square-label root"><p>security</p></div>
-      <div class="square-label root"><p>technology stack</p></div>
-      <div class="square-label root"><p>project management</p></div>
-
-      <div class="square-label upper-mid"><p>agentic system A</p></div>
-      <div class="square-label upper-mid"><p>agentic system B</p></div>
-      <div class="square-label upper-mid"><p>agentic system C</p></div>
-      <div class="square-label upper-mid"><p>agentic system D</p></div>
-
-      <div class="square-label upper"><p>solution 1</p></div>
-      <div class="square-label upper"><p>solution 2</p></div>
-      <div class="square-label upper"><p>solution 3</p></div>
-    </div>
+    <div
+      class="scene-label-container"
+      data-phase="0"
+      data-js="scene-label-container"
+    ></div>
 
     <canvas class="webgl"></canvas>
     <script type="module" src="/src/main.ts"></script>

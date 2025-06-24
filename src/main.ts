@@ -13,6 +13,7 @@ import {
   dashedLineMaterial,
   dashedLineMaterialBlack,
   dashedLineMaterialSolid,
+  plat1Labels,
   platform,
   platformGeometry,
   rootPlatformCircleGeometry,
@@ -24,8 +25,15 @@ import {
   upperMidPlatformSpheres,
   upperMidSquarePositions,
   upperSquarePositions,
+  plat3Labels,
+  plat2Labels,
 } from "./constants";
-import { getObjectByName, getObjectsByProperty, randIn } from "./utils";
+import {
+  createExpandableLabel,
+  getObjectByName,
+  getObjectsByProperty,
+  randIn,
+} from "./utils";
 import GUI from "lil-gui";
 
 class MyScene {
@@ -53,9 +61,10 @@ class MyScene {
   previousProgress = 0;
 
   htmlElementsContainer: HTMLDivElement = document.querySelector(
-    ".square-label-container"
+    "[data-js='scene-label-container']"
   ) as HTMLDivElement;
 
+  activeLabel = -1;
   htmlElementsRoot: Array<HTMLDivElement> = [];
   htmlElementsUpperMid: Array<HTMLDivElement> = [];
   htmlElementsUpper: Array<HTMLDivElement> = [];
@@ -83,20 +92,65 @@ class MyScene {
   }
 
   setupHtmlElements() {
-    let els = document.querySelectorAll(".square-label.root");
-    for (const el of els) {
-      this.htmlElementsRoot.push(el as HTMLDivElement);
+    const onClick = (e: MouseEvent & { currentTarget: HTMLDivElement }) => {
+      if (e.currentTarget.classList.contains("active")) {
+        e.currentTarget.classList.remove("active");
+        this.htmlElementsContainer.classList.remove("focused");
+        return;
+      }
+
+      this.htmlElementsContainer.classList.add("focused");
+      this.htmlElementsContainer.childNodes.forEach((child: HTMLDivElement) => {
+        if (child !== e.currentTarget) {
+          child.classList.remove("active");
+        }
+      });
+      e.currentTarget?.classList.toggle("active");
+    };
+
+    for (const label of plat1Labels) {
+      const el = createExpandableLabel({
+        label: label.label,
+        phase: 1,
+        subKeywords: label.subKeywords,
+        icon: label.icon,
+        align: label.align || "right",
+        onClick,
+      });
+      this.htmlElementsContainer.appendChild(el);
+      this.htmlElementsRoot.push(el);
     }
 
-    els = document.querySelectorAll(".square-label.upper-mid");
-    for (const el of els) {
-      this.htmlElementsUpperMid.push(el as HTMLDivElement);
+    for (const label of plat2Labels) {
+      const el = createExpandableLabel({
+        label: label.label,
+        phase: 2,
+        subKeywords: label.subKeywords,
+        icon: label.icon,
+        align: label.align || "right",
+        onClick,
+      });
+      this.htmlElementsContainer.appendChild(el);
+      this.htmlElementsUpperMid.push(el);
     }
 
-    els = document.querySelectorAll(".square-label.upper");
-    for (const el of els) {
-      this.htmlElementsUpper.push(el as HTMLDivElement);
+    for (const label of plat3Labels) {
+      const el = createExpandableLabel({
+        label: label.label,
+        phase: 3,
+        subKeywords: [],
+        icon: label.icon,
+        align: label.align || "right",
+        alt: true,
+        onClick,
+      });
+      this.htmlElementsContainer.appendChild(el);
+      this.htmlElementsUpper.push(el);
     }
+  }
+
+  toggleHtmlElementsEnable() {
+    this.htmlElementsContainer.classList.add("enabled");
   }
 
   initSettings() {
@@ -166,25 +220,13 @@ class MyScene {
       }
     }
 
-    if (progress > 0.95 && this.sceneState.phase !== 1) {
-      this.sceneState.phase = 1;
-      this.htmlElementsContainer.setAttribute("data-phase", "1");
-      this.revealUpperMidPlatform();
-      this.updateRootPlatformColors();
-      this.updateMidPlatformColors();
-    }
-
-    if (progress > 1) {
-      this.settings.upperMidPlatformY =
-        (platform.gap + 5) * Math.max(0.25, 1 - (progress - 1));
-
-      if (this.sceneState.phase !== 2) {
-        this.sceneState.phase = 2;
-        this.htmlElementsContainer.setAttribute("data-phase", "2");
+    if (progress > 2.9) {
+      if (this.sceneState.phase !== 4) {
+        this.sceneState.phase = 4;
+        this.htmlElementsContainer.setAttribute("data-phase", "4");
+        this.updateUpperPlatformColors();
       }
-    }
-
-    if (progress > 1.9) {
+    } else if (progress > 1.9) {
       this.settings.upperPlatformY =
         (platform.gap + 5) * Math.max(0.38, 1 - (progress - 2));
 
@@ -192,16 +234,27 @@ class MyScene {
         this.sceneState.phase = 3;
         this.htmlElementsContainer.setAttribute("data-phase", "3");
         this.updateUpperMidPlatformColors();
+
         this.revealUpperPlatform();
       }
-    }
+    } else if (progress > 1) {
+      this.settings.upperMidPlatformY =
+        (platform.gap + 5) * Math.max(0.25, 1 - (progress - 1));
 
-    if (progress > 2.9) {
-      if (this.sceneState.phase !== 4) {
-        this.sceneState.phase = 4;
-        this.htmlElementsContainer.setAttribute("data-phase", "4");
-        this.updateUpperPlatformColors();
+      if (this.sceneState.phase !== 2) {
+        this.sceneState.phase = 2;
+        this.htmlElementsContainer.setAttribute("data-phase", "2");
+
+        this.toggleHtmlElementsEnable();
       }
+    } else if (progress > 0.95 && this.sceneState.phase !== 1) {
+      this.sceneState.phase = 1;
+      this.htmlElementsContainer.setAttribute("data-phase", "1");
+      this.revealUpperMidPlatform();
+      this.updateRootPlatformColors();
+      this.updateMidPlatformColors();
+
+      this.toggleHtmlElementsEnable();
     }
 
     this.previousProgress = progress;
