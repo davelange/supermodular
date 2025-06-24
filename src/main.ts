@@ -1,14 +1,9 @@
 import * as THREE from "three";
 import {
-  CSS2DRenderer,
-  EffectComposer,
   Line2,
   LineGeometry,
   LineMaterial,
   OrbitControls,
-  RenderPass,
-  RoundedBoxGeometry,
-  ShaderPass,
 } from "three/examples/jsm/Addons.js";
 import { LineMaterial as FatLineMaterial } from "three-fatline";
 import Stats from "three/examples/jsm/libs/stats.module.js";
@@ -55,6 +50,8 @@ class MyScene {
     progress: 0,
   };
 
+  previousProgress = 0;
+
   htmlElementsContainer: HTMLDivElement = document.querySelector(
     ".square-label-container"
   ) as HTMLDivElement;
@@ -87,19 +84,19 @@ class MyScene {
 
   setupHtmlElements() {
     let els = document.querySelectorAll(".square-label.root");
-    els.forEach((el) => {
+    for (const el of els) {
       this.htmlElementsRoot.push(el as HTMLDivElement);
-    });
+    }
 
     els = document.querySelectorAll(".square-label.upper-mid");
-    els.forEach((el) => {
+    for (const el of els) {
       this.htmlElementsUpperMid.push(el as HTMLDivElement);
-    });
+    }
 
     els = document.querySelectorAll(".square-label.upper");
-    els.forEach((el) => {
+    for (const el of els) {
       this.htmlElementsUpper.push(el as HTMLDivElement);
-    });
+    }
   }
 
   initSettings() {
@@ -118,6 +115,40 @@ class MyScene {
   }
 
   onProgressChange(progress: number) {
+    // const isForward = progress > this.previousProgress;
+    const isReverse = progress < this.previousProgress;
+
+    // reverse animation for 4 -> 3
+    if (isReverse && progress <= 2.9 && this.sceneState.phase === 4) {
+      this.sceneState.phase = 3;
+      this.htmlElementsContainer.setAttribute("data-phase", "3");
+      this.hideUpperPlatformColors();
+    }
+
+    // reverse animation for 3 -> 2
+    if (isReverse && progress <= 1.9 && this.sceneState.phase === 3) {
+      this.sceneState.phase = 2;
+      this.htmlElementsContainer.setAttribute("data-phase", "2");
+      this.hideUpperPlatform();
+      this.hideUpperMidPlatformColors();
+    }
+
+    // reverse animation for 2 -> 1
+    if (isReverse && progress <= 1 && this.sceneState.phase === 2) {
+      this.sceneState.phase = 1;
+      this.htmlElementsContainer.setAttribute("data-phase", "1");
+    }
+
+    // reverse animation for 1 -> 0
+    if (isReverse && progress <= 0.95 && this.sceneState.phase === 1) {
+      this.sceneState.phase = 0;
+      this.htmlElementsContainer.setAttribute("data-phase", "0");
+      this.hideUpperMidPlatform();
+      this.hideRootPlatformColors();
+      this.hideMidPlatformColors();
+    }
+
+    // animation logic
     if (progress <= 1) {
       this.sceneState.phase = 0;
       this.settings.midPlatformY = platform.gap * Math.max(0.15, 1 - progress);
@@ -164,6 +195,8 @@ class MyScene {
         this.updateUpperPlatformColors();
       }
     }
+
+    this.previousProgress = progress;
   }
 
   setupRenderer() {
@@ -329,6 +362,22 @@ class MyScene {
     );
   }
 
+  hideRootPlatformColors() {
+    getObjectsByProperty(this.rootPlatform, "name", "circleMaterial").forEach(
+      (mesh) => {
+        mesh.material.color.set(colors.green);
+      }
+    );
+    getObjectsByProperty(this.rootPlatform, "name", "sphere").forEach(
+      (mesh) => {
+        mesh.material.color.set(colors.green);
+      }
+    );
+    getObjectByName(this.rootPlatform, "borderMaterial").material.color.set(
+      colors.green
+    );
+  }
+
   addRootPlatformCircles(group: THREE.Group, args: { x: number; z: number }) {
     const spacing = platform.size / platform.numLines; // Space between lines
 
@@ -460,6 +509,23 @@ class MyScene {
       (mesh) => {
         mesh.material.linewidth = 0.3;
         mesh.material.color.set(colors.yellow);
+      }
+    );
+  }
+
+  hideMidPlatformColors() {
+    getObjectsByProperty(this.midPlatform, "name", "square").forEach((mesh) => {
+      mesh.material.color.set(colors.black);
+    });
+    getObjectsByProperty(this.midPlatform, "name", "borderMaterial").forEach(
+      (mesh) => {
+        mesh.material.color.set(colors.black);
+      }
+    );
+    getObjectsByProperty(this.midPlatform, "name", "dashedLine").forEach(
+      (mesh) => {
+        mesh.material.linewidth = 1;
+        mesh.material.color.set(colors.black);
       }
     );
   }
@@ -620,6 +686,22 @@ class MyScene {
     getObjectByName(this.upperMidPlatform, "square").material.opacity = 1;
   }
 
+  hideUpperMidPlatform() {
+    if (!this.upperMidPlatformIsVisible) return;
+    this.upperMidPlatformIsVisible = false;
+
+    getObjectByName(
+      this.upperMidPlatform,
+      "planeMaterial"
+    ).material.opacity = 0;
+    getObjectByName(
+      this.upperMidPlatform,
+      "borderMaterial"
+    ).material.opacity = 0;
+    getObjectByName(this.upperMidPlatform, "sphere").material.opacity = 0;
+    getObjectByName(this.upperMidPlatform, "square").material.opacity = 0;
+  }
+
   moveUpperMidPlatform() {
     getObjectByName(this.upperMidPlatform, "platformGroup").position.y =
       this.settings.upperMidPlatformY;
@@ -686,6 +768,50 @@ class MyScene {
       (mesh) => {
         mesh.material.color.set(colors.lightGray);
         mesh.material.linewidth = 0.5;
+      }
+    );
+    getObjectByName(this.midPlatform, "borderMaterial").material.color.set(
+      colors.black
+    );
+  }
+
+  hideUpperMidPlatformColors() {
+    getObjectsByProperty(this.upperMidPlatform, "name", "square").forEach(
+      (mesh) => {
+        mesh.material.color.set(colors.black);
+      }
+    );
+    getObjectsByProperty(this.upperMidPlatform, "name", "dashedLine").forEach(
+      (mesh) => {
+        mesh.material.color.set(colors.black);
+        mesh.material.linewidth = 1;
+      }
+    );
+    getObjectByName(this.upperMidPlatform, "borderMaterial").material.color.set(
+      colors.black
+    );
+    getObjectsByProperty(
+      this.upperMidPlatform,
+      "name",
+      "lineFromSquare"
+    ).forEach((mesh) => {
+      mesh.material.color.set(colors.yellow);
+      mesh.material.opacity = 0;
+    });
+    getObjectsByProperty(
+      this.upperMidPlatform,
+      "name",
+      "lineFromSquareVertical"
+    ).forEach((mesh) => {
+      mesh.material.color.set(colors.yellow);
+      mesh.material.opacity = 0;
+    });
+
+    // restore mid platform colors
+    getObjectsByProperty(this.midPlatform, "name", "dashedLine").forEach(
+      (mesh) => {
+        mesh.material.color.set(colors.black);
+        mesh.material.linewidth = 1;
       }
     );
     getObjectByName(this.midPlatform, "borderMaterial").material.color.set(
@@ -805,6 +931,16 @@ class MyScene {
     );
   }
 
+  hideUpperPlatform() {
+    getObjectByName(this.upperPlatform, "planeMaterial").material.opacity = 0;
+    getObjectByName(this.upperPlatform, "borderMaterial").material.opacity = 0;
+    getObjectsByProperty(this.upperPlatform, "name", "square").forEach(
+      (mesh) => {
+        mesh.material.opacity = 0;
+      }
+    );
+  }
+
   updateUpperPlatformColors() {
     getObjectByName(this.upperPlatform, "borderMaterial").material.color.set(
       colors.yellow
@@ -823,6 +959,27 @@ class MyScene {
     );
     getObjectByName(this.upperMidPlatform, "dashedLine").material.color.set(
       colors.lightGray
+    );
+  }
+
+  hideUpperPlatformColors() {
+    getObjectByName(this.upperPlatform, "borderMaterial").material.color.set(
+      colors.black
+    );
+
+    const dashedLine = getObjectByName(this.upperPlatform, "dashedLine");
+    dashedLine.material.color.set(colors.black);
+    dashedLine.material.linewidth = 1;
+
+    getObjectByName(this.upperPlatform, "square").material.color.set(
+      colors.black
+    );
+
+    getObjectByName(this.upperMidPlatform, "borderMaterial").material.color.set(
+      colors.yellow
+    );
+    getObjectByName(this.upperMidPlatform, "dashedLine").material.color.set(
+      colors.yellow
     );
   }
 
