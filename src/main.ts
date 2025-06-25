@@ -176,12 +176,84 @@ class MyScene {
     // Add mouse scroll event listener for progress control
     window.addEventListener("wheel", (event) => {
       event.preventDefault();
-      const scrollDelta = event.deltaY > 0 ? 0.1 : -0.1;
+
+      // Adjust scroll sensitivity based on device type
+      let scrollDelta: number;
+      if (this.width < 768) {
+        // Mobile devices - more sensitive
+        scrollDelta = event.deltaY > 0 ? 0.15 : -0.15;
+      } else if (this.width < 1024) {
+        // Tablet devices - medium sensitivity
+        scrollDelta = event.deltaY > 0 ? 0.12 : -0.12;
+      } else {
+        // Desktop devices - standard sensitivity
+        scrollDelta = event.deltaY > 0 ? 0.1 : -0.1;
+      }
+
       this.targetProgress = Math.max(
         0,
         Math.min(4, this.targetProgress + scrollDelta)
       );
     });
+
+    // Add touch events for mobile devices
+    this.setupTouchEvents();
+  }
+
+  setupTouchEvents() {
+    let touchStartY = 0;
+    let touchStartProgress = 0;
+
+    // Touch start
+    window.addEventListener(
+      "touchstart",
+      (event) => {
+        event.preventDefault();
+        touchStartY = event.touches[0].clientY;
+        touchStartProgress = this.targetProgress;
+      },
+      { passive: false }
+    );
+
+    // Touch move
+    window.addEventListener(
+      "touchmove",
+      (event) => {
+        event.preventDefault();
+        const touchY = event.touches[0].clientY;
+        const deltaY = touchStartY - touchY;
+
+        // Adjust touch sensitivity based on device type
+        let sensitivity: number;
+        if (this.width < 768) {
+          // Mobile devices - more sensitive
+          sensitivity = 2.5;
+        } else if (this.width < 1024) {
+          // Tablet devices - medium sensitivity
+          sensitivity = 2.0;
+        } else {
+          // Desktop devices - standard sensitivity
+          sensitivity = 1.5;
+        }
+
+        const progressDelta = (deltaY / this.height) * sensitivity;
+
+        this.targetProgress = Math.max(
+          0,
+          Math.min(4, touchStartProgress + progressDelta)
+        );
+      },
+      { passive: false }
+    );
+
+    // Touch end
+    window.addEventListener(
+      "touchend",
+      (event) => {
+        event.preventDefault();
+      },
+      { passive: false }
+    );
   }
 
   onProgressChange(progress: number) {
@@ -279,21 +351,35 @@ class MyScene {
   }
 
   setupCamera() {
-    let frustrum = this.height;
-    let aspect = this.width / this.height;
-    this.camera = new THREE.OrthographicCamera(
-      (frustrum * aspect) / -2,
-      (frustrum * aspect) / 2,
-      frustrum / 2,
-      frustrum / -2,
-      -1000,
-      1000
-    );
+    this.updateCameraFrustum();
     const dist = 6;
     this.camera.position.set(dist, dist - 2, dist);
-    this.camera.zoom = 7;
+
+    // Adjust zoom based on screen size for better mobile/tablet experience
+    if (this.width < 768) {
+      // Mobile devices
+      this.camera.zoom = 5;
+    } else if (this.width < 1024) {
+      // Tablet devices
+      this.camera.zoom = 6;
+    } else {
+      // Desktop devices
+      this.camera.zoom = 7;
+    }
+
     this.camera.lookAt(0, 0, 0);
     this.camera.updateProjectionMatrix();
+  }
+
+  updateCameraFrustum() {
+    const frustrum = this.height;
+    const aspect = this.width / this.height;
+    this.camera.left = (frustrum * aspect) / -2;
+    this.camera.right = (frustrum * aspect) / 2;
+    this.camera.top = frustrum / 2;
+    this.camera.bottom = frustrum / -2;
+    this.camera.near = -1000;
+    this.camera.far = 1000;
   }
 
   setupResize() {
@@ -302,12 +388,49 @@ class MyScene {
       this.width = window.innerWidth;
       this.height = window.innerHeight;
 
-      // Update camera
+      // Update camera frustum and projection matrix
+      this.updateCameraFrustum();
+
+      // Adjust zoom based on new screen size
+      if (this.width < 768) {
+        // Mobile devices
+        this.camera.zoom = 5;
+      } else if (this.width < 1024) {
+        // Tablet devices
+        this.camera.zoom = 6;
+      } else {
+        // Desktop devices
+        this.camera.zoom = 7;
+      }
+
       this.camera.updateProjectionMatrix();
 
       // Update renderer
       this.renderer.setSize(this.width, this.height);
       this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    });
+
+    // Handle orientation changes on mobile devices
+    window.addEventListener("orientationchange", () => {
+      // Add a small delay to ensure the orientation change is complete
+      setTimeout(() => {
+        this.width = window.innerWidth;
+        this.height = window.innerHeight;
+
+        this.updateCameraFrustum();
+
+        // Adjust zoom based on new screen size
+        if (this.width < 768) {
+          this.camera.zoom = 5;
+        } else if (this.width < 1024) {
+          this.camera.zoom = 6;
+        } else {
+          this.camera.zoom = 7;
+        }
+
+        this.camera.updateProjectionMatrix();
+        this.renderer.setSize(this.width, this.height);
+      }, 100);
     });
   }
 
