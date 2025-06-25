@@ -118,13 +118,13 @@ export const upperSquarePositions = [
 export const plat1Labels = [
   {
     label: "Objectives",
-    subKeywords: ["Dependencies", "Cost", "Compliance"],
+    subKeywords: ["OKR", "Business Outcome"],
     icon: "label_objectives.svg",
     align: "right",
   },
   {
     label: "architecture",
-    subKeywords: ["Dependencies", "Cost", "Compliance"],
+    subKeywords: ["Solution Patterns", "Governance"],
     icon: "label_arch.svg",
     align: "left",
   },
@@ -136,19 +136,19 @@ export const plat1Labels = [
   },
   {
     label: "technology stack",
-    subKeywords: ["Dependencies", "Cost", "Compliance"],
+    subKeywords: ["Cloud Platforms", "Enterprise Systems", "API's", "Tools"],
     icon: "label_tech.svg",
     align: "right",
   },
   {
     label: "project management",
-    subKeywords: ["Dependencies", "Cost", "Compliance"],
+    subKeywords: ["Methodologies,", "Frameworks"],
     icon: "label_proj.svg",
     align: "right",
   },
   {
     label: "organization",
-    subKeywords: ["Dependencies", "Cost", "Compliance"],
+    subKeywords: ["Teams", "Roles", "Ownership"],
     icon: "label_org.svg",
     align: "left",
   },
