@@ -1,14 +1,9 @@
 import * as THREE from "three";
 import {
-  CSS2DRenderer,
-  EffectComposer,
   Line2,
   LineGeometry,
   LineMaterial,
   OrbitControls,
-  RenderPass,
-  RoundedBoxGeometry,
-  ShaderPass,
 } from "three/examples/jsm/Addons.js";
 import { LineMaterial as FatLineMaterial } from "three-fatline";
 import Stats from "three/examples/jsm/libs/stats.module.js";
@@ -18,6 +13,7 @@ import {
   dashedLineMaterial,
   dashedLineMaterialBlack,
   dashedLineMaterialSolid,
+  plat1Labels,
   platform,
   platformGeometry,
   rootPlatformCircleGeometry,
@@ -29,8 +25,15 @@ import {
   upperMidPlatformSpheres,
   upperMidSquarePositions,
   upperSquarePositions,
+  plat3Labels,
+  plat2Labels,
 } from "./constants";
-import { getObjectByName, getObjectsByProperty, randIn } from "./utils";
+import {
+  createExpandableLabel,
+  getObjectByName,
+  getObjectsByProperty,
+  randIn,
+} from "./utils";
 import GUI from "lil-gui";
 
 class MyScene {
@@ -55,10 +58,15 @@ class MyScene {
     progress: 0,
   };
 
+  previousProgress = 0;
+  targetProgress = 0;
+  scrollSmoothness = 0.05;
+
   htmlElementsContainer: HTMLDivElement = document.querySelector(
-    ".square-label-container"
+    "[data-js='scene-label-container']"
   ) as HTMLDivElement;
 
+  activeLabel = -1;
   htmlElementsRoot: Array<HTMLDivElement> = [];
   htmlElementsUpperMid: Array<HTMLDivElement> = [];
   htmlElementsUpper: Array<HTMLDivElement> = [];
@@ -82,24 +90,71 @@ class MyScene {
     this.scene.add(axesHelper);
     this.scene.add(this.container);
 
+    // Initialize target progress to match current progress
+    this.targetProgress = this.settings.progress;
     this.onProgressChange(this.settings.progress);
   }
 
   setupHtmlElements() {
-    let els = document.querySelectorAll(".square-label.root");
-    els.forEach((el) => {
-      this.htmlElementsRoot.push(el as HTMLDivElement);
-    });
+    const onClick = (e: MouseEvent & { currentTarget: HTMLDivElement }) => {
+      if (e.currentTarget.classList.contains("active")) {
+        e.currentTarget.classList.remove("active");
+        this.htmlElementsContainer.classList.remove("focused");
+        return;
+      }
 
-    els = document.querySelectorAll(".square-label.upper-mid");
-    els.forEach((el) => {
-      this.htmlElementsUpperMid.push(el as HTMLDivElement);
-    });
+      this.htmlElementsContainer.classList.add("focused");
+      this.htmlElementsContainer.childNodes.forEach((child: HTMLDivElement) => {
+        if (child !== e.currentTarget) {
+          child.classList.remove("active");
+        }
+      });
+      e.currentTarget?.classList.toggle("active");
+    };
 
-    els = document.querySelectorAll(".square-label.upper");
-    els.forEach((el) => {
-      this.htmlElementsUpper.push(el as HTMLDivElement);
-    });
+    for (const label of plat1Labels) {
+      const el = createExpandableLabel({
+        label: label.label,
+        phase: 1,
+        subKeywords: label.subKeywords,
+        icon: label.icon,
+        align: label.align || "right",
+        onClick,
+      });
+      this.htmlElementsContainer.appendChild(el);
+      this.htmlElementsRoot.push(el);
+    }
+
+    for (const label of plat2Labels) {
+      const el = createExpandableLabel({
+        label: label.label,
+        phase: 2,
+        subKeywords: label.subKeywords,
+        icon: label.icon,
+        align: label.align || "right",
+        onClick,
+      });
+      this.htmlElementsContainer.appendChild(el);
+      this.htmlElementsUpperMid.push(el);
+    }
+
+    for (const label of plat3Labels) {
+      const el = createExpandableLabel({
+        label: label.label,
+        phase: 3,
+        subKeywords: [],
+        icon: label.icon,
+        align: label.align || "right",
+        alt: true,
+        onClick,
+      });
+      this.htmlElementsContainer.appendChild(el);
+      this.htmlElementsUpper.push(el);
+    }
+  }
+
+  toggleHtmlElementsEnable() {
+    this.htmlElementsContainer.classList.add("enabled");
   }
 
   initSettings() {
@@ -112,12 +167,130 @@ class MyScene {
         this.controls = null;
       }
     });
+
+    // Add scroll smoothness control
     gui
-      .add(this.settings, "progress", 0, 4, 0.01)
-      .onChange((val: number) => this.onProgressChange(val));
+      .add(this, "scrollSmoothness", 0.01, 0.2, 0.01)
+      .name("Scroll Smoothness");
+
+    // Add mouse scroll event listener for progress control
+    window.addEventListener("wheel", (event) => {
+      event.preventDefault();
+
+      // Adjust scroll sensitivity based on device type
+      let scrollDelta: number;
+      if (this.width < 768) {
+        // Mobile devices - more sensitive
+        scrollDelta = event.deltaY > 0 ? 0.15 : -0.15;
+      } else if (this.width < 1024) {
+        // Tablet devices - medium sensitivity
+        scrollDelta = event.deltaY > 0 ? 0.12 : -0.12;
+      } else {
+        // Desktop devices - standard sensitivity
+        scrollDelta = event.deltaY > 0 ? 0.1 : -0.1;
+      }
+
+      this.targetProgress = Math.max(
+        0,
+        Math.min(4, this.targetProgress + scrollDelta)
+      );
+    });
+
+    // Add touch events for mobile devices
+    this.setupTouchEvents();
+  }
+
+  setupTouchEvents() {
+    let touchStartY = 0;
+    let touchStartProgress = 0;
+
+    // Touch start
+    window.addEventListener(
+      "touchstart",
+      (event) => {
+        event.preventDefault();
+        touchStartY = event.touches[0].clientY;
+        touchStartProgress = this.targetProgress;
+      },
+      { passive: false }
+    );
+
+    // Touch move
+    window.addEventListener(
+      "touchmove",
+      (event) => {
+        event.preventDefault();
+        const touchY = event.touches[0].clientY;
+        const deltaY = touchStartY - touchY;
+
+        // Adjust touch sensitivity based on device type
+        let sensitivity: number;
+        if (this.width < 768) {
+          // Mobile devices - more sensitive
+          sensitivity = 2.5;
+        } else if (this.width < 1024) {
+          // Tablet devices - medium sensitivity
+          sensitivity = 2.0;
+        } else {
+          // Desktop devices - standard sensitivity
+          sensitivity = 1.5;
+        }
+
+        const progressDelta = (deltaY / this.height) * sensitivity;
+
+        this.targetProgress = Math.max(
+          0,
+          Math.min(4, touchStartProgress + progressDelta)
+        );
+      },
+      { passive: false }
+    );
+
+    // Touch end
+    window.addEventListener(
+      "touchend",
+      (event) => {
+        event.preventDefault();
+      },
+      { passive: false }
+    );
   }
 
   onProgressChange(progress: number) {
+    // const isForward = progress > this.previousProgress;
+    const isReverse = progress < this.previousProgress;
+
+    // reverse animation for 4 -> 3
+    if (isReverse && progress <= 2.9 && this.sceneState.phase === 4) {
+      this.sceneState.phase = 3;
+      this.htmlElementsContainer.setAttribute("data-phase", "3");
+      this.hideUpperPlatformColors();
+    }
+
+    // reverse animation for 3 -> 2
+    if (isReverse && progress <= 1.9 && this.sceneState.phase === 3) {
+      this.sceneState.phase = 2;
+      this.htmlElementsContainer.setAttribute("data-phase", "2");
+      this.hideUpperPlatform();
+      this.hideUpperMidPlatformColors();
+    }
+
+    // reverse animation for 2 -> 1
+    if (isReverse && progress <= 1 && this.sceneState.phase === 2) {
+      this.sceneState.phase = 1;
+      this.htmlElementsContainer.setAttribute("data-phase", "1");
+    }
+
+    // reverse animation for 1 -> 0
+    if (isReverse && progress <= 0.95 && this.sceneState.phase === 1) {
+      this.sceneState.phase = 0;
+      this.htmlElementsContainer.setAttribute("data-phase", "0");
+      this.hideUpperMidPlatform();
+      this.hideRootPlatformColors();
+      this.hideMidPlatformColors();
+    }
+
+    // animation logic
     if (progress <= 1) {
       this.sceneState.phase = 0;
       this.settings.midPlatformY = platform.gap * Math.max(0.15, 1 - progress);
@@ -127,25 +300,13 @@ class MyScene {
       }
     }
 
-    if (progress > 0.95 && this.sceneState.phase !== 1) {
-      this.sceneState.phase = 1;
-      this.htmlElementsContainer.setAttribute("data-phase", "1");
-      this.revealUpperMidPlatform();
-      this.updateRootPlatformColors();
-      this.updateMidPlatformColors();
-    }
-
-    if (progress > 1) {
-      this.settings.upperMidPlatformY =
-        (platform.gap + 5) * Math.max(0.25, 1 - (progress - 1));
-
-      if (this.sceneState.phase !== 2) {
-        this.sceneState.phase = 2;
-        this.htmlElementsContainer.setAttribute("data-phase", "2");
+    if (progress > 2.9) {
+      if (this.sceneState.phase !== 4) {
+        this.sceneState.phase = 4;
+        this.htmlElementsContainer.setAttribute("data-phase", "4");
+        this.updateUpperPlatformColors();
       }
-    }
-
-    if (progress > 1.9) {
+    } else if (progress > 1.9) {
       this.settings.upperPlatformY =
         (platform.gap + 5) * Math.max(0.38, 1 - (progress - 2));
 
@@ -153,17 +314,30 @@ class MyScene {
         this.sceneState.phase = 3;
         this.htmlElementsContainer.setAttribute("data-phase", "3");
         this.updateUpperMidPlatformColors();
+
         this.revealUpperPlatform();
       }
+    } else if (progress > 1) {
+      this.settings.upperMidPlatformY =
+        (platform.gap + 5) * Math.max(0.25, 1 - (progress - 1));
+
+      if (this.sceneState.phase !== 2) {
+        this.sceneState.phase = 2;
+        this.htmlElementsContainer.setAttribute("data-phase", "2");
+
+        this.toggleHtmlElementsEnable();
+      }
+    } else if (progress > 0.95 && this.sceneState.phase !== 1) {
+      this.sceneState.phase = 1;
+      this.htmlElementsContainer.setAttribute("data-phase", "1");
+      this.revealUpperMidPlatform();
+      this.updateRootPlatformColors();
+      this.updateMidPlatformColors();
+
+      this.toggleHtmlElementsEnable();
     }
 
-    if (progress > 2.9) {
-      if (this.sceneState.phase !== 4) {
-        this.sceneState.phase = 4;
-        this.htmlElementsContainer.setAttribute("data-phase", "4");
-        this.updateUpperPlatformColors();
-      }
-    }
+    this.previousProgress = progress;
   }
 
   setupRenderer() {
@@ -177,21 +351,35 @@ class MyScene {
   }
 
   setupCamera() {
-    let frustrum = this.height;
-    let aspect = this.width / this.height;
-    this.camera = new THREE.OrthographicCamera(
-      (frustrum * aspect) / -2,
-      (frustrum * aspect) / 2,
-      frustrum / 2,
-      frustrum / -2,
-      -1000,
-      1000
-    );
+    this.updateCameraFrustum();
     const dist = 6;
     this.camera.position.set(dist, dist - 2, dist);
-    this.camera.zoom = 7;
+
+    // Adjust zoom based on screen size for better mobile/tablet experience
+    if (this.width < 768) {
+      // Mobile devices
+      this.camera.zoom = 5;
+    } else if (this.width < 1024) {
+      // Tablet devices
+      this.camera.zoom = 6;
+    } else {
+      // Desktop devices
+      this.camera.zoom = 7;
+    }
+
     this.camera.lookAt(0, 0, 0);
     this.camera.updateProjectionMatrix();
+  }
+
+  updateCameraFrustum() {
+    const frustrum = this.height;
+    const aspect = this.width / this.height;
+    this.camera.left = (frustrum * aspect) / -2;
+    this.camera.right = (frustrum * aspect) / 2;
+    this.camera.top = frustrum / 2;
+    this.camera.bottom = frustrum / -2;
+    this.camera.near = -1000;
+    this.camera.far = 1000;
   }
 
   setupResize() {
@@ -200,12 +388,49 @@ class MyScene {
       this.width = window.innerWidth;
       this.height = window.innerHeight;
 
-      // Update camera
+      // Update camera frustum and projection matrix
+      this.updateCameraFrustum();
+
+      // Adjust zoom based on new screen size
+      if (this.width < 768) {
+        // Mobile devices
+        this.camera.zoom = 5;
+      } else if (this.width < 1024) {
+        // Tablet devices
+        this.camera.zoom = 6;
+      } else {
+        // Desktop devices
+        this.camera.zoom = 7;
+      }
+
       this.camera.updateProjectionMatrix();
 
       // Update renderer
       this.renderer.setSize(this.width, this.height);
       this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    });
+
+    // Handle orientation changes on mobile devices
+    window.addEventListener("orientationchange", () => {
+      // Add a small delay to ensure the orientation change is complete
+      setTimeout(() => {
+        this.width = window.innerWidth;
+        this.height = window.innerHeight;
+
+        this.updateCameraFrustum();
+
+        // Adjust zoom based on new screen size
+        if (this.width < 768) {
+          this.camera.zoom = 5;
+        } else if (this.width < 1024) {
+          this.camera.zoom = 6;
+        } else {
+          this.camera.zoom = 7;
+        }
+
+        this.camera.updateProjectionMatrix();
+        this.renderer.setSize(this.width, this.height);
+      }, 100);
     });
   }
 
@@ -218,7 +443,11 @@ class MyScene {
 
   /* Scene objects */
   rootPlatform: THREE.Group = new THREE.Group();
-  rootPlatformSpheres: Array<{ delay: number; mesh: THREE.Mesh }> = [];
+  rootPlatformSpheres: Array<{
+    delay: number;
+    mesh: THREE.Mesh;
+    speed?: number;
+  }> = [];
   rootPlatformLines: Array<{ mesh: Line2; startY: THREE.Vector3 }> = [];
 
   midPlatform: THREE.Group = new THREE.Group();
@@ -227,7 +456,11 @@ class MyScene {
   upperMidPlatform: THREE.Group = new THREE.Group();
   upperMidPlatformIsVisible = false;
   upperMidPlatformSphereGroup = new THREE.Group();
-  upperMidPlatformSpheres: Array<{ delay: number; mesh: THREE.Mesh }> = [];
+  upperMidPlatformSpheres: Array<{
+    delay: number;
+    mesh: THREE.Mesh;
+    speed?: number;
+  }> = [];
 
   upperPlatform: THREE.Group = new THREE.Group();
   upperPlatformVerticalLines: Array<{ mesh: Line2; startPos: THREE.Vector3 }> =
@@ -305,10 +538,16 @@ class MyScene {
         continue;
       }
 
+      // Random vertical speed for each sphere
+      const speed = sphere.speed || Math.random() * 0.15 + 0.05; // 0.05 to 0.2
+      sphere.speed = speed;
+
       if (sphere.mesh.position.y > this.settings.midPlatformY - 1) {
         sphere.mesh.position.y = 0;
+        // New random delay
+        sphere.delay = Math.floor(Math.random() * 200) + 50;
       } else {
-        sphere.mesh.position.y += 0.1;
+        sphere.mesh.position.y += speed;
       }
     }
   }
@@ -326,6 +565,22 @@ class MyScene {
     );
     getObjectByName(this.rootPlatform, "borderMaterial").material.color.set(
       colors.darkGray
+    );
+  }
+
+  hideRootPlatformColors() {
+    getObjectsByProperty(this.rootPlatform, "name", "circleMaterial").forEach(
+      (mesh) => {
+        mesh.material.color.set(colors.green);
+      }
+    );
+    getObjectsByProperty(this.rootPlatform, "name", "sphere").forEach(
+      (mesh) => {
+        mesh.material.color.set(colors.green);
+      }
+    );
+    getObjectByName(this.rootPlatform, "borderMaterial").material.color.set(
+      colors.green
     );
   }
 
@@ -460,6 +715,23 @@ class MyScene {
       (mesh) => {
         mesh.material.linewidth = 0.3;
         mesh.material.color.set(colors.yellow);
+      }
+    );
+  }
+
+  hideMidPlatformColors() {
+    getObjectsByProperty(this.midPlatform, "name", "square").forEach((mesh) => {
+      mesh.material.color.set(colors.black);
+    });
+    getObjectsByProperty(this.midPlatform, "name", "borderMaterial").forEach(
+      (mesh) => {
+        mesh.material.color.set(colors.black);
+      }
+    );
+    getObjectsByProperty(this.midPlatform, "name", "dashedLine").forEach(
+      (mesh) => {
+        mesh.material.linewidth = 1;
+        mesh.material.color.set(colors.black);
       }
     );
   }
@@ -620,6 +892,22 @@ class MyScene {
     getObjectByName(this.upperMidPlatform, "square").material.opacity = 1;
   }
 
+  hideUpperMidPlatform() {
+    if (!this.upperMidPlatformIsVisible) return;
+    this.upperMidPlatformIsVisible = false;
+
+    getObjectByName(
+      this.upperMidPlatform,
+      "planeMaterial"
+    ).material.opacity = 0;
+    getObjectByName(
+      this.upperMidPlatform,
+      "borderMaterial"
+    ).material.opacity = 0;
+    getObjectByName(this.upperMidPlatform, "sphere").material.opacity = 0;
+    getObjectByName(this.upperMidPlatform, "square").material.opacity = 0;
+  }
+
   moveUpperMidPlatform() {
     getObjectByName(this.upperMidPlatform, "platformGroup").position.y =
       this.settings.upperMidPlatformY;
@@ -641,10 +929,16 @@ class MyScene {
         continue;
       }
 
+      // Random vertical speed for each sphere
+      const speed = sphere.speed || Math.random() * 0.12 + 0.03; // 0.03 to 0.15
+      sphere.speed = speed;
+
       if (sphere.mesh.position.y > this.settings.upperMidPlatformY - 3) {
         sphere.mesh.position.y = 5;
+        // New random delay
+        sphere.delay = Math.floor(Math.random() * 150) + 30;
       } else {
-        sphere.mesh.position.y += 0.1;
+        sphere.mesh.position.y += speed;
       }
     }
   }
@@ -686,6 +980,50 @@ class MyScene {
       (mesh) => {
         mesh.material.color.set(colors.lightGray);
         mesh.material.linewidth = 0.5;
+      }
+    );
+    getObjectByName(this.midPlatform, "borderMaterial").material.color.set(
+      colors.black
+    );
+  }
+
+  hideUpperMidPlatformColors() {
+    getObjectsByProperty(this.upperMidPlatform, "name", "square").forEach(
+      (mesh) => {
+        mesh.material.color.set(colors.black);
+      }
+    );
+    getObjectsByProperty(this.upperMidPlatform, "name", "dashedLine").forEach(
+      (mesh) => {
+        mesh.material.color.set(colors.black);
+        mesh.material.linewidth = 1;
+      }
+    );
+    getObjectByName(this.upperMidPlatform, "borderMaterial").material.color.set(
+      colors.black
+    );
+    getObjectsByProperty(
+      this.upperMidPlatform,
+      "name",
+      "lineFromSquare"
+    ).forEach((mesh) => {
+      mesh.material.color.set(colors.yellow);
+      mesh.material.opacity = 0;
+    });
+    getObjectsByProperty(
+      this.upperMidPlatform,
+      "name",
+      "lineFromSquareVertical"
+    ).forEach((mesh) => {
+      mesh.material.color.set(colors.yellow);
+      mesh.material.opacity = 0;
+    });
+
+    // restore mid platform colors
+    getObjectsByProperty(this.midPlatform, "name", "dashedLine").forEach(
+      (mesh) => {
+        mesh.material.color.set(colors.black);
+        mesh.material.linewidth = 1;
       }
     );
     getObjectByName(this.midPlatform, "borderMaterial").material.color.set(
@@ -805,6 +1143,16 @@ class MyScene {
     );
   }
 
+  hideUpperPlatform() {
+    getObjectByName(this.upperPlatform, "planeMaterial").material.opacity = 0;
+    getObjectByName(this.upperPlatform, "borderMaterial").material.opacity = 0;
+    getObjectsByProperty(this.upperPlatform, "name", "square").forEach(
+      (mesh) => {
+        mesh.material.opacity = 0;
+      }
+    );
+  }
+
   updateUpperPlatformColors() {
     getObjectByName(this.upperPlatform, "borderMaterial").material.color.set(
       colors.yellow
@@ -823,6 +1171,27 @@ class MyScene {
     );
     getObjectByName(this.upperMidPlatform, "dashedLine").material.color.set(
       colors.lightGray
+    );
+  }
+
+  hideUpperPlatformColors() {
+    getObjectByName(this.upperPlatform, "borderMaterial").material.color.set(
+      colors.black
+    );
+
+    const dashedLine = getObjectByName(this.upperPlatform, "dashedLine");
+    dashedLine.material.color.set(colors.black);
+    dashedLine.material.linewidth = 1;
+
+    getObjectByName(this.upperPlatform, "square").material.color.set(
+      colors.black
+    );
+
+    getObjectByName(this.upperMidPlatform, "borderMaterial").material.color.set(
+      colors.yellow
+    );
+    getObjectByName(this.upperMidPlatform, "dashedLine").material.color.set(
+      colors.yellow
     );
   }
 
@@ -892,9 +1261,16 @@ class MyScene {
   clock = new THREE.Clock();
 
   render() {
-    const elapsedTime = this.clock.getElapsedTime();
+    //const elapsedTime = this.clock.getElapsedTime();
 
     this.controls?.update();
+
+    // Smooth scroll interpolation
+    if (Math.abs(this.settings.progress - this.targetProgress) > 0.001) {
+      this.settings.progress +=
+        (this.targetProgress - this.settings.progress) * this.scrollSmoothness;
+      this.onProgressChange(this.settings.progress);
+    }
 
     this.moveRootPlatformSpheres();
     this.moveMidPlatform();

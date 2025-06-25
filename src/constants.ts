@@ -1,6 +1,5 @@
 import * as THREE from "three";
 import { LineMaterial } from "three-fatline";
-import { randIn } from "./utils";
 import { RoundedBoxGeometry } from "three/examples/jsm/Addons.js";
 
 export const colors = {
@@ -113,4 +112,87 @@ export const upperSquarePositions = [
   { x: -15, z: 15 },
   { x: 15, z: -15 },
   { x: 15, z: 15 },
+];
+
+export const plat1Labels = [
+  {
+    label: "Objectives",
+    subKeywords: ["OKR", "Business Outcome"],
+    icon: "label_objectives.svg",
+    align: "right",
+  },
+  {
+    label: "architecture",
+    subKeywords: ["Solution Patterns", "Governance"],
+    icon: "label_arch.svg",
+    align: "left",
+  },
+  {
+    label: "security",
+    subKeywords: ["Dependencies", "Cost", "Compliance"],
+    icon: "label_security.svg",
+    align: "left",
+  },
+  {
+    label: "technology stack",
+    subKeywords: ["Cloud Platforms", "Enterprise Systems", "API's", "Tools"],
+    icon: "label_tech.svg",
+    align: "right",
+  },
+  {
+    label: "project management",
+    subKeywords: ["Methodologies,", "Frameworks"],
+    icon: "label_proj.svg",
+    align: "right",
+  },
+  {
+    label: "organization",
+    subKeywords: ["Teams", "Roles", "Ownership"],
+    icon: "label_org.svg",
+    align: "left",
+  },
+];
+
+export const plat2Labels = [
+  {
+    label: "Agentic system A",
+    subKeywords: ["Compliance"],
+    icon: "label_security.svg",
+  },
+  {
+    label: "Agentic system B",
+    subKeywords: ["Quality Control"],
+    icon: "label_security.svg",
+  },
+  {
+    label: "Agentic system C",
+    subKeywords: ["IT Architecture"],
+    icon: "label_security.svg",
+  },
+  {
+    label: "Agentic system D",
+    subKeywords: ["Project Manager"],
+    icon: "label_security.svg",
+  },
+];
+
+export const plat3Labels = [
+  {
+    label: "Solution 1",
+    icon: "solution1.png",
+    align: "left",
+    subKeywords: ["Compliance"],
+  },
+  {
+    label: "Solution 2",
+    icon: "solution2.png",
+    align: "left",
+    subKeywords: ["Compliance"],
+  },
+  {
+    label: "Solution 3",
+    icon: "solution3.png",
+    align: "left",
+    subKeywords: ["Compliance"],
+  },
 ];
