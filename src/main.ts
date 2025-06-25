@@ -59,6 +59,8 @@ class MyScene {
   };
 
   previousProgress = 0;
+  targetProgress = 0;
+  scrollSmoothness = 0.05;
 
   htmlElementsContainer: HTMLDivElement = document.querySelector(
     "[data-js='scene-label-container']"
@@ -88,6 +90,8 @@ class MyScene {
     this.scene.add(axesHelper);
     this.scene.add(this.container);
 
+    // Initialize target progress to match current progress
+    this.targetProgress = this.settings.progress;
     this.onProgressChange(this.settings.progress);
   }
 
@@ -164,15 +168,19 @@ class MyScene {
       }
     });
 
+    // Add scroll smoothness control
+    gui
+      .add(this, "scrollSmoothness", 0.01, 0.2, 0.01)
+      .name("Scroll Smoothness");
+
     // Add mouse scroll event listener for progress control
     window.addEventListener("wheel", (event) => {
       event.preventDefault();
       const scrollDelta = event.deltaY > 0 ? 0.1 : -0.1;
-      this.settings.progress = Math.max(
+      this.targetProgress = Math.max(
         0,
-        Math.min(4, this.settings.progress + scrollDelta)
+        Math.min(4, this.targetProgress + scrollDelta)
       );
-      this.onProgressChange(this.settings.progress);
     });
   }
 
@@ -312,7 +320,11 @@ class MyScene {
 
   /* Scene objects */
   rootPlatform: THREE.Group = new THREE.Group();
-  rootPlatformSpheres: Array<{ delay: number; mesh: THREE.Mesh }> = [];
+  rootPlatformSpheres: Array<{
+    delay: number;
+    mesh: THREE.Mesh;
+    speed?: number;
+  }> = [];
   rootPlatformLines: Array<{ mesh: Line2; startY: THREE.Vector3 }> = [];
 
   midPlatform: THREE.Group = new THREE.Group();
@@ -321,7 +333,11 @@ class MyScene {
   upperMidPlatform: THREE.Group = new THREE.Group();
   upperMidPlatformIsVisible = false;
   upperMidPlatformSphereGroup = new THREE.Group();
-  upperMidPlatformSpheres: Array<{ delay: number; mesh: THREE.Mesh }> = [];
+  upperMidPlatformSpheres: Array<{
+    delay: number;
+    mesh: THREE.Mesh;
+    speed?: number;
+  }> = [];
 
   upperPlatform: THREE.Group = new THREE.Group();
   upperPlatformVerticalLines: Array<{ mesh: Line2; startPos: THREE.Vector3 }> =
@@ -399,10 +415,16 @@ class MyScene {
         continue;
       }
 
+      // Random vertical speed for each sphere
+      const speed = sphere.speed || Math.random() * 0.15 + 0.05; // 0.05 to 0.2
+      sphere.speed = speed;
+
       if (sphere.mesh.position.y > this.settings.midPlatformY - 1) {
         sphere.mesh.position.y = 0;
+        // New random delay
+        sphere.delay = Math.floor(Math.random() * 200) + 50;
       } else {
-        sphere.mesh.position.y += 0.1;
+        sphere.mesh.position.y += speed;
       }
     }
   }
@@ -784,10 +806,16 @@ class MyScene {
         continue;
       }
 
+      // Random vertical speed for each sphere
+      const speed = sphere.speed || Math.random() * 0.12 + 0.03; // 0.03 to 0.15
+      sphere.speed = speed;
+
       if (sphere.mesh.position.y > this.settings.upperMidPlatformY - 3) {
         sphere.mesh.position.y = 5;
+        // New random delay
+        sphere.delay = Math.floor(Math.random() * 150) + 30;
       } else {
-        sphere.mesh.position.y += 0.1;
+        sphere.mesh.position.y += speed;
       }
     }
   }
@@ -1113,6 +1141,13 @@ class MyScene {
     //const elapsedTime = this.clock.getElapsedTime();
 
     this.controls?.update();
+
+    // Smooth scroll interpolation
+    if (Math.abs(this.settings.progress - this.targetProgress) > 0.001) {
+      this.settings.progress +=
+        (this.targetProgress - this.settings.progress) * this.scrollSmoothness;
+      this.onProgressChange(this.settings.progress);
+    }
 
     this.moveRootPlatformSpheres();
     this.moveMidPlatform();
