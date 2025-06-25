@@ -1,6 +1,5 @@
 import * as THREE from "three";
 import { LineMaterial } from "three-fatline";
-import { randIn } from "./utils";
 import { RoundedBoxGeometry } from "three/examples/jsm/Addons.js";
 
 export const colors = {
